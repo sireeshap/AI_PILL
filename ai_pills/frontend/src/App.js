@@ -22,7 +22,7 @@ function App() {
   return (
     <Router>
       <div className="App">
-        <nav>
+        {/* <nav>
           <ul>
             <li>
               <Link to="/">Home</Link>
@@ -39,13 +39,9 @@ function App() {
             <li>
               <Link to="/admin">Admin</Link>
             </li>{' '}
-            {/* Added Admin Link */}
-            {/* Link to ForgotPasswordPage can be moved to LoginPage or RegisterPage for better UX */}
-            {/* <li><Link to="/forgot-password">Forgot Password</Link></li> */}
+            <li><Link to="/forgot-password">Forgot Password</Link></li> 
           </ul>
-        </nav>
-
-        <hr />
+        </nav> */}  
         {/* Note: In a real app, /dashboard and /admin should be protected routes */}
         <Routes>
           <Route path="/login" element={<LoginPage />} />

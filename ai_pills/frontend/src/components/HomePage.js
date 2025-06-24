@@ -66,7 +66,7 @@ function HomePage() {
   return (
     <div>
       <header style={{ textAlign: 'center', marginBlock: '20px' }}>
-        <h1>Welcome to AI Pills Marketplace</h1>
+        <h1>AI Pills Marketplace</h1>
         <p>Discover, download, and share innovative AI agents.</p>
       </header>
 
