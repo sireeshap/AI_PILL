@@ -1,3 +1,4 @@
+# filepath: /Users/purushotham_sireesha@optum.com/Documents/AI_PILL/Backend/app/api/endpoints/admin.py
 # In ai_pills_fastapi_backend/app/api/endpoints/admin.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Any, Dict, Optional # Added Optional

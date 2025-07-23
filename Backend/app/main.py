@@ -1,11 +1,23 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware # Import this
+from contextlib import asynccontextmanager
 
 # Import routers
 from app.api.endpoints import auth as auth_router
 from app.api.endpoints import agents as agents_router
 from app.api.endpoints import admin as admin_router
 from app.api.endpoints import public_agents as public_agents_router # Add this import
+
+# Import database connection functions
+from app.core.database import connect_to_mongo, close_mongo_connection
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await connect_to_mongo()
+    yield
+    # Shutdown
+    await close_mongo_connection()
 
 app = FastAPI(
     title="AI Pills API - FastAPI Edition",
@@ -20,6 +32,7 @@ It also includes administrative functionalities for platform oversight.
 *   User Registration and Authentication (JWT-based)
 *   AI Agent CRUD operations for authenticated developers
 *   Administrative controls for user and agent management
+*   MongoDB database integration
 
 **API Structure:**
 *   `/api/v1/auth`: Authentication endpoints (register, login).
@@ -35,6 +48,7 @@ It also includes administrative functionalities for platform oversight.
         "name": "MIT License", # Assuming MIT, replace if different
         "url": "https://opensource.org/licenses/MIT",
     },
+    lifespan=lifespan
     # swagger_ui_parameters={"defaultModelsExpandDepth": -1} # Optionally hide models section by default in /docs
     # swagger_ui_parameters={"docExpansion": "none"} # Or "list" or "full"
 )
@@ -58,6 +72,19 @@ app.add_middleware(
 @app.get("/", summary="Root Endpoint", description="A welcome message indicating the API is running.")
 async def read_root():
     return {"message": "Welcome to AI Pills FastAPI Backend!"}
+
+@app.get("/health", summary="Health Check", description="Check the health status of the API and database connection.")
+async def health_check():
+    from app.core.database import get_database_status
+    
+    db_status = await get_database_status()
+    
+    return {
+        "status": "healthy",
+        "message": "AI Pills FastAPI Backend is running",
+        "database": db_status
+    }
+
 
 # Include routers from different modules
 app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["Authentication"])

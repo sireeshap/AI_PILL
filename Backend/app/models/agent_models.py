@@ -2,6 +2,8 @@
 from pydantic import BaseModel, HttpUrl, Field # Added Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from beanie import Document
+from pymongo import IndexModel
 
 class AgentBase(BaseModel):
     name: str = Field(..., description="Name of the AI agent.", example="My Awesome AI")
@@ -24,15 +26,27 @@ class AgentUpdate(AgentBase):
     tags: Optional[List[str]] = Field(None, description="New list of tags for the agent.")
     github_link: Optional[HttpUrl] = Field(None, description="New GitHub repository link for the agent.")
 
+class Agent(Document, AgentBase):
+    developer_username: str = Field(..., description="Username of the developer who uploaded this agent.", example="dev_user_1")
+    upload_date: datetime = Field(default_factory=datetime.utcnow, description="Date and time when the agent was uploaded.")
+    status: str = Field("pending_review", description="Current status of the agent (e.g., pending_review, approved, rejected).", example="approved")
+    
+    class Settings:
+        name = "agents"
+        indexes = [
+            IndexModel([("developer_username", 1)]),
+            IndexModel([("status", 1)]),
+            IndexModel([("tags", 1)]),
+        ]
 
 class AgentInDBBase(AgentBase):
-    id: int = Field(..., description="Unique identifier for the agent.", example=101)
+    id: str = Field(..., description="Unique identifier for the agent.", example="507f1f77bcf86cd799439011")
     developer_username: str = Field(..., description="Username of the developer who uploaded this agent.", example="dev_user_1")
     upload_date: datetime = Field(..., description="Date and time when the agent was uploaded.")
     status: str = Field("pending_review", description="Current status of the agent (e.g., pending_review, approved, rejected).", example="approved")
 
     class Config:
-        orm_mode = True # or from_attributes = True for Pydantic v2
+        from_attributes = True # Updated for Pydantic v2
 
 class AgentPublic(AgentInDBBase): # Or a subset of fields for public view
     # For this example, AgentPublic shows all fields from AgentInDBBase.

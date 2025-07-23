@@ -39,26 +39,25 @@ async def admin_list_users(
     "/users/{user_id}",
     response_model=user_models.UserPublic,
     summary="Admin: Get a specific user by ID",
-    description="Allows administrators to retrieve information about a specific user by their ID."
+    description="Allows administrators to retrieve detailed information about a specific user by their ID."
 )
 async def admin_get_user(
-    user_id: str,
+    user_id: int,
     admin_username: str = Depends(get_current_admin_user_username)
 ) -> Any:
-    try:
-        object_id = PydanticObjectId(user_id)
-        user = await User.get(object_id)
-    except Exception:
+    user_to_return = None
+    for user_obj in fake_users_db.values():
+        if user_obj.id == user_id:
+            try:
+                user_to_return = user_models.UserPublic.model_validate(user_obj) # Pydantic v2+
+            except AttributeError:
+                public_data = {"id": user_obj.id, "email": user_obj.email, "username": user_obj.username}
+                # if hasattr(user_obj, 'status'): public_data['status'] = user_obj.status
+                user_to_return = user_models.UserPublic(**public_data)
+            break
+    if not user_to_return:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    
-    return user_models.UserPublic(
-        id=str(user.id),
-        username=user.username,
-        email=user.email
-    )
+    return user_to_return
 
 @router.put(
     "/users/{user_id}/status",
@@ -67,30 +66,34 @@ async def admin_get_user(
     description="Allows administrators to update the status of a user (e.g., ban, activate). Note: User model needs a 'status' field for this to be effective."
 )
 async def admin_update_user_status(
-    user_id: str,
+    user_id: int,
     status_update: Dict[str, str], # e.g. {"status": "banned"}
     admin_username: str = Depends(get_current_admin_user_username)
 ) -> Any:
-    try:
-        object_id = PydanticObjectId(user_id)
-        user = await User.get(object_id)
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    target_user_obj: Optional[user_models.UserInDBBase] = None
 
-    if not user:
+    for user_obj_val in fake_users_db.values():
+        if user_obj_val.id == user_id:
+            target_user_obj = user_obj_val
+            break
+
+    if not target_user_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     new_status = status_update.get("status")
     if new_status:
-        print(f"Admin action: User {user.username} status would be updated to {new_status}")
-        # Note: User model doesn't have status field yet, but this is a placeholder
-        # If needed, you can add a status field to the User model
+        print(f"Admin action: User {target_user_obj.username} status would be updated to {new_status}")
+        # Conceptual: if UserInDBBase model had a 'status' field:
+        # target_user_obj.status = new_status
+        # fake_users_db[target_user_obj.username] = target_user_obj
 
-    return user_models.UserPublic(
-        id=str(user.id),
-        username=user.username,
-        email=user.email
-    )
+    try:
+        return user_models.UserPublic.model_validate(target_user_obj) # Pydantic v2+
+    except AttributeError:
+        public_data = {"id": target_user_obj.id, "email": target_user_obj.email, "username": target_user_obj.username}
+        # if hasattr(target_user_obj, 'status'): public_data['status'] = target_user_obj.status
+        return user_models.UserPublic(**public_data)
+
 
 # --- Agent Management by Admin ---
 @router.get(
@@ -104,21 +107,7 @@ async def admin_list_agents(
     skip: int = 0,
     limit: int = 100
 ) -> Any:
-    agents = await Agent.find_all().skip(skip).limit(limit).to_list()
-    
-    return [
-        agent_models.AgentPublic(
-            id=str(agent.id),
-            name=agent.name,
-            description=agent.description,
-            version=agent.version,
-            tags=agent.tags,
-            github_link=agent.github_link,
-            developer_username=agent.developer_username,
-            upload_date=agent.upload_date,
-            status=agent.status
-        ) for agent in agents
-    ]
+    return list(fake_agents_db.values())[skip : skip + limit]
 
 @router.get(
     "/agents/{agent_id}",
@@ -127,29 +116,13 @@ async def admin_list_agents(
     description="Allows administrators to retrieve detailed information about any specific agent by its ID."
 )
 async def admin_get_agent(
-    agent_id: str,
+    agent_id: int,
     admin_username: str = Depends(get_current_admin_user_username)
 ) -> Any:
-    try:
-        object_id = PydanticObjectId(agent_id)
-        agent = await Agent.get(object_id)
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
-
+    agent = fake_agents_db.get(agent_id)
     if not agent:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
-    
-    return agent_models.AgentPublic(
-        id=str(agent.id),
-        name=agent.name,
-        description=agent.description,
-        version=agent.version,
-        tags=agent.tags,
-        github_link=agent.github_link,
-        developer_username=agent.developer_username,
-        upload_date=agent.upload_date,
-        status=agent.status
-    )
+    return agent
 
 @router.put(
     "/agents/{agent_id}/status",
@@ -158,44 +131,18 @@ async def admin_get_agent(
     description="Allows administrators to update the status of an AI agent (e.g., approve, reject, suspend)."
 )
 async def admin_update_agent_status(
-    agent_id: str,
+    agent_id: int,
     status_update: Dict[str, str], # e.g. {"status": "approved"}
     admin_username: str = Depends(get_current_admin_user_username)
 ) -> Any:
-    try:
-        object_id = PydanticObjectId(agent_id)
-        agent = await Agent.get(object_id)
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
-
+    agent = fake_agents_db.get(agent_id)
     if not agent:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
     new_status = status_update.get("status")
-    if new_status:
+    if new_status and hasattr(agent, 'status'): # AgentInDBBase has 'status'
         agent.status = new_status
-        updated_agent = await agent.save()
-        
-        return agent_models.AgentPublic(
-            id=str(updated_agent.id),
-            name=updated_agent.name,
-            description=updated_agent.description,
-            version=updated_agent.version,
-            tags=updated_agent.tags,
-            github_link=updated_agent.github_link,
-            developer_username=updated_agent.developer_username,
-            upload_date=updated_agent.upload_date,
-            status=updated_agent.status
-        )
+    elif new_status:
+         print(f"Admin: Agent model does not have status field, but attempted to set to {new_status}") # Should not happen for agent
 
-    return agent_models.AgentPublic(
-        id=str(agent.id),
-        name=agent.name,
-        description=agent.description,
-        version=agent.version,
-        tags=agent.tags,
-        github_link=agent.github_link,
-        developer_username=agent.developer_username,
-        upload_date=agent.upload_date,
-        status=agent.status
-    )
+    return agent
