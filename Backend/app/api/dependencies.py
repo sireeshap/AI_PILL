@@ -4,11 +4,60 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from app.core.security import SECRET_KEY, ALGORITHM # Re-using from auth
 from app.models.user_models import TokenData, UserPublic # Assuming UserPublic can represent a lightweight user
+from app.models.user_models import User
+from beanie import PydanticObjectId
 
 # This is a simplified dependency. A real one would fetch user from DB.
 # The OAuth2PasswordBearer should point to the tokenUrl of your login
 # This matches the login route in app/api/endpoints/auth.py
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPublic:
+    """Get current user from JWT token"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        email: str = payload.get("email")
+        role: str = payload.get("role")
+        
+        if user_id is None or email is None:
+            raise credentials_exception
+            
+    except JWTError:
+        raise credentials_exception
+
+    # In a real app, you'd fetch the user from DB to ensure they exist and are active
+    # For now, we'll create a UserPublic object from the token data
+    try:
+        user = await User.get(PydanticObjectId(user_id))
+        if not user:
+            raise credentials_exception
+            
+        return UserPublic(
+            id=str(user.id),
+            email=user.email,
+            name=user.name,
+            role=user.role,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            last_login=user.last_login
+        )
+    except Exception:
+        # If user lookup fails, create from token data
+        return UserPublic(
+            id=user_id,
+            email=email,
+            name="Unknown User",
+            role=role or "developer",
+            created_at=None,
+            updated_at=None,
+            last_login=None
+        )
 
 async def get_current_user_username(token: str = Depends(oauth2_scheme)) -> str:
     credentials_exception = HTTPException(
@@ -43,24 +92,14 @@ async def get_mock_current_user_object() -> UserPublic:
     return UserPublic(id=999, username="mocktestuser", email="mock@example.com")
 
 # --- New Admin Dependency ---
-async def get_current_admin_user_username(current_username: str = Depends(get_current_user_username)) -> str:
-    # In a real system, you'd look up the user by current_username and check their roles.
-    # For this example, if the username is 'adminuser', they are an admin.
-    # This requires a user named 'adminuser' to be registered and logged in.
-    # A more robust solution would be to:
-    # 1. Fetch the user object based on `current_username`.
-    # 2. Check a `role` attribute on that user object (e.g., `user.role == 'admin'`).
-    # This would require `fake_users_db` to store roles or have a dedicated admin user.
-
-    # For now, a simple name check:
-    # To test this, you would need to register a user with the username "adminuser"
-    # and then use their token.
-    if current_username != "adminuser":
+async def get_current_admin_user_username(current_user: UserPublic = Depends(get_current_user)) -> str:
+    # Check if the current user has admin role
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The user does not have administrative privileges"
         )
-    return current_username
+    return current_user.email  # Return email instead of username
 
 # Note: The choice between get_current_user_username and get_mock_current_user (or a variant)
 # in the agent routes will determine if it expects a string (username) or a UserPublic object.

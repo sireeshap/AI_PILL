@@ -1,7 +1,7 @@
-# app/api/endpoints/public_agents.py - Updated for new schema
-from fastapi import APIRouter, HTTPException, status
+# In ai_pills_fastapi_backend/app/api/endpoints/public_agents.py
+from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List, Any
-from app.models import agent_models
+from app.models import agent_models # Assuming AgentPublic is suitable
 from app.models.agent_models import Agent
 from beanie import PydanticObjectId
 
@@ -13,7 +13,7 @@ router = APIRouter()
     summary="List all publicly available AI agents",
     description="Retrieve a list of AI agents that are marked as 'public' and active. This endpoint does not require authentication."
 )
-async def list_publicly_available_agents(skip: int = 0, limit: int = 20) -> Any:
+async def list_publicly_approved_agents(skip: int = 0, limit: int = 20) -> Any:
     public_agents = await Agent.find({
         "visibility": "public", 
         "is_active": True
@@ -52,6 +52,8 @@ async def get_public_agent_details(agent_id: str) -> Any:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
     if agent.visibility != "public" or not agent.is_active:
+        # Even if found, if not public or not active, treat as not publicly available
+        # Returning 404 to not disclose existence of private agents
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found or not publicly available")
 
     return agent_models.AgentPublic(
@@ -70,14 +72,15 @@ async def get_public_agent_details(agent_id: str) -> Any:
 
 @router.get(
     "/ids/all",
-    response_model=List[str],
-    summary="Get IDs of all public AI agents",
-    description="Retrieve a list of unique string IDs for all AI agents that are currently public and active."
+    response_model=List[str], # Changed to List[str] since we're using MongoDB ObjectIds
+    summary="Get IDs of all approved AI agents",
+    description="Retrieve a list of unique string IDs for all AI agents that are currently 'approved'. This is primarily intended for static site generation purposes (e.g., `getStaticPaths` in Next.js)."
 )
-async def get_all_public_agent_ids() -> List[str]:
-    public_agents = await Agent.find({"visibility": "public", "is_active": True}).to_list()
-    agent_ids = [str(agent.id) for agent in public_agents]
-    return agent_ids
+async def get_all_approved_agent_ids() -> List[str]:
+    approved_agents = await Agent.find({"visibility": "public", "is_active": True}).to_list()
+    approved_agent_ids = [str(agent.id) for agent in approved_agents]
+    return approved_agent_ids
+
 
 @router.get(
     "/featured",
@@ -87,6 +90,7 @@ async def get_all_public_agent_ids() -> List[str]:
 )
 async def get_featured_agents(limit: int = 10) -> List[agent_models.AgentPublic]:
     # For now, we'll return the most recently created public agents
+    # In a real implementation, you might have a 'featured' flag or use popularity metrics
     featured_agents = await Agent.find({
         "visibility": "public", 
         "is_active": True

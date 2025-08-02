@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 from app.api.endpoints import auth as auth_router
 from app.api.endpoints import agents as agents_router
 from app.api.endpoints import admin as admin_router
-from app.api.endpoints import public_agents as public_agents_router # Add this import
+from app.api.endpoints import public_agents as public_agents_router
+from app.api.endpoints import files as files_router
+from app.api.endpoints import agent_stats as agent_stats_router
 
 # Import database connection functions
 from app.core.database import connect_to_mongo, close_mongo_connection
@@ -90,11 +92,13 @@ async def health_check():
 app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(agents_router.router, prefix="/api/v1/agents", tags=["Agent Management"])
 app.include_router(admin_router.router, prefix="/api/v1/admin", tags=["Admin Panel"])
-app.include_router( # Add this section for the new public_agents_router
+app.include_router(
     public_agents_router.router,
     prefix="/api/v1/public/agents",
     tags=["Public Agents"]
 )
+app.include_router(files_router.router, prefix="/api/v1/files", tags=["File Management"])
+app.include_router(agent_stats_router.router, prefix="/api/v1/stats", tags=["Agent Statistics"])
 
 
 # Placeholder for future top-level routers or middleware if needed

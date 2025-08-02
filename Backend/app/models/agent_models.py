@@ -1,54 +1,53 @@
 # In ai_pills_fastapi_backend/app/models/agent_models.py
-from pydantic import BaseModel, HttpUrl, Field # Added Field
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field # Added Field
+from typing import List, Optional
 from datetime import datetime
-from beanie import Document
+from beanie import Document, PydanticObjectId
 from pymongo import IndexModel
 
 class AgentBase(BaseModel):
     name: str = Field(..., description="Name of the AI agent.", example="My Awesome AI")
-    description: Optional[str] = Field(None, description="Detailed description of the AI agent.", example="This agent performs complex calculations.")
-    version: Optional[str] = Field("1.0", description="Version of the AI agent.", example="1.0.1")
-    tags: Optional[List[str]] = Field([], description="Tags associated with the agent for categorization.", example=["data-analysis", "nlp"])
-    # Pydantic v1 uses HttpUrl directly. V2 might need import from pydantic_core
-    github_link: Optional[HttpUrl] = Field(None, description="Optional link to the agent's GitHub repository.", example="https://github.com/username/agent-repo")
-    # For direct file upload, we might store metadata here
-    # agent_file_name: Optional[str] = Field(None, description="Name of the uploaded agent file.")
-    # agent_file_type: Optional[str] = Field(None, description="MIME type of the uploaded agent file.")
+    description: str = Field(..., description="Detailed description of the AI agent.", example="This agent performs complex calculations.")
+    visibility: str = Field(default="private", description="Agent visibility: public or private.", example="public")
+    tags: List[str] = Field(default=[], description="Tags associated with the agent for categorization.", example=["data-analysis", "nlp"])
+    agent_type: str = Field(..., description="Type of the AI agent.", example="chatbot")
+    file_refs: List[PydanticObjectId] = Field(default=[], description="References to uploaded files.")
+    is_active: bool = Field(default=True, description="Whether the agent is active.")
 
 class AgentCreate(AgentBase):
-    pass # Add any creation-specific fields if necessary, e.g. if some fields are required only on create
+    pass # All required fields are in AgentBase
 
-class AgentUpdate(AgentBase):
-    name: Optional[str] = Field(None, description="New name of the AI agent.") # Allow partial updates
+class AgentUpdate(BaseModel):
+    name: Optional[str] = Field(None, description="New name of the AI agent.")
     description: Optional[str] = Field(None, description="New detailed description of the AI agent.")
-    version: Optional[str] = Field(None, description="New version of the AI agent.")
+    visibility: Optional[str] = Field(None, description="New visibility setting.")
     tags: Optional[List[str]] = Field(None, description="New list of tags for the agent.")
-    github_link: Optional[HttpUrl] = Field(None, description="New GitHub repository link for the agent.")
+    agent_type: Optional[str] = Field(None, description="New agent type.")
+    is_active: Optional[bool] = Field(None, description="New active status.")
 
 class Agent(Document, AgentBase):
-    developer_username: str = Field(..., description="Username of the developer who uploaded this agent.", example="dev_user_1")
-    upload_date: datetime = Field(default_factory=datetime.utcnow, description="Date and time when the agent was uploaded.")
-    status: str = Field("pending_review", description="Current status of the agent (e.g., pending_review, approved, rejected).", example="approved")
+    created_by: PydanticObjectId = Field(..., description="ID of the user who created this agent.")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Date and time when the agent was created.")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Date and time when the agent was last updated.")
     
     class Settings:
-        name = "agents"
+        name = "ai_agents"
         indexes = [
-            IndexModel([("developer_username", 1)]),
-            IndexModel([("status", 1)]),
+            IndexModel([("created_by", 1)]),
+            IndexModel([("visibility", 1)]),
             IndexModel([("tags", 1)]),
+            IndexModel([("agent_type", 1)]),
         ]
 
 class AgentInDBBase(AgentBase):
     id: str = Field(..., description="Unique identifier for the agent.", example="507f1f77bcf86cd799439011")
-    developer_username: str = Field(..., description="Username of the developer who uploaded this agent.", example="dev_user_1")
-    upload_date: datetime = Field(..., description="Date and time when the agent was uploaded.")
-    status: str = Field("pending_review", description="Current status of the agent (e.g., pending_review, approved, rejected).", example="approved")
+    created_by: PydanticObjectId = Field(..., description="ID of the user who created this agent.")
+    created_at: datetime = Field(..., description="Date and time when the agent was created.")
+    updated_at: datetime = Field(..., description="Date and time when the agent was last updated.")
 
     class Config:
         from_attributes = True # Updated for Pydantic v2
 
-class AgentPublic(AgentInDBBase): # Or a subset of fields for public view
-    # For this example, AgentPublic shows all fields from AgentInDBBase.
-    # You might want to exclude certain fields for public view in a real app.
+class AgentPublic(AgentInDBBase):
+    # Public view shows all fields from AgentInDBBase
     pass

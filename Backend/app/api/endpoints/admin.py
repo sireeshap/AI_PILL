@@ -1,11 +1,13 @@
 # In ai_pills_fastapi_backend/app/api/endpoints/admin.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Any, Dict, Optional # Added Optional
-from app.models import user_models, agent_models
+from app.models import user_models, agent_models, admin_log_models
 from app.models.user_models import User
 from app.models.agent_models import Agent
+from app.models.admin_log_models import AdminLog
 from app.api.dependencies import get_current_admin_user_username
 from beanie import PydanticObjectId
+from datetime import datetime
 
 router = APIRouter()
 
@@ -199,3 +201,50 @@ async def admin_update_agent_status(
         upload_date=agent.upload_date,
         status=agent.status
     )
+
+# --- Admin Logs ---
+@router.get(
+    "/logs",
+    response_model=List[admin_log_models.AdminLogPublic],
+    summary="Admin: View admin logs",
+    description="Retrieve a list of admin actions for audit purposes."
+)
+async def admin_get_logs(
+    admin_username: str = Depends(get_current_admin_user_username),
+    skip: int = 0,
+    limit: int = 100,
+    action: Optional[str] = None,
+    target_type: Optional[str] = None
+) -> Any:
+    query = {}
+    if action:
+        query["action"] = action
+    if target_type:
+        query["target_type"] = target_type
+    
+    logs = await AdminLog.find(query).sort([("created_at", -1)]).skip(skip).limit(limit).to_list()
+    
+    return [
+        admin_log_models.AdminLogPublic(
+            id=str(log.id),
+            admin_id=log.admin_id,
+            action=log.action,
+            target_type=log.target_type,
+            target_id=log.target_id,
+            description=log.description,
+            created_at=log.created_at
+        ) for log in logs
+    ]
+
+
+# Helper function to create admin log
+async def create_admin_log(admin_id: str, action: str, target_type: str, target_id: str, description: str):
+    log_entry = AdminLog(
+        admin_id=PydanticObjectId(admin_id),
+        action=action,
+        target_type=target_type,
+        target_id=PydanticObjectId(target_id),
+        description=description,
+        created_at=datetime.utcnow()
+    )
+    await log_entry.insert()

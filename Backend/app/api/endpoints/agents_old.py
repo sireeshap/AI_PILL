@@ -1,11 +1,10 @@
-# app/api/endpoints/agents.py - Updated for new schema
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Any, Optional
+# In ai_pills_fastapi_backend/app/api/endpoints/agents.py
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from typing import List, Any, Optional, Dict # Added Dict
 from app.models import agent_models
 from app.models.agent_models import Agent
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user # Updated import
 from beanie import PydanticObjectId
-from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -14,12 +13,14 @@ router = APIRouter()
     response_model=agent_models.AgentPublic,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new AI Agent",
-    description="Upload a new AI agent. The agent will be associated with the authenticated user."
+    description="Upload a new AI agent. The agent will be associated with the authenticated developer and initially set to 'pending_review'."
 )
 async def create_agent(
     agent_in: agent_models.AgentCreate,
     current_user = Depends(get_current_user)
 ) -> Any:
+    from datetime import datetime, timezone
+
     # Create new agent
     agent_data = Agent(
         name=agent_in.name,
@@ -41,14 +42,12 @@ async def create_agent(
             id=str(created_agent.id),
             name=created_agent.name,
             description=created_agent.description,
-            visibility=created_agent.visibility,
+            version=created_agent.version,
             tags=created_agent.tags,
-            agent_type=created_agent.agent_type,
-            file_refs=created_agent.file_refs,
-            is_active=created_agent.is_active,
-            created_by=created_agent.created_by,
-            created_at=created_agent.created_at,
-            updated_at=created_agent.updated_at
+            github_link=created_agent.github_link,
+            developer_username=created_agent.developer_username,
+            upload_date=created_agent.upload_date,
+            status=created_agent.status
         )
     except Exception as e:
         raise HTTPException(
@@ -59,29 +58,27 @@ async def create_agent(
 @router.get(
     "/",
     response_model=List[agent_models.AgentPublic],
-    summary="List agents for the authenticated user",
-    description="Retrieves a list of AI agents created by the currently authenticated user."
+    summary="List agents for the authenticated developer",
+    description="Retrieves a list of AI agents uploaded by the currently authenticated developer."
 )
-async def read_agents_for_user(
+async def read_agents_for_developer(
     skip: int = 0,
     limit: int = 10,
-    current_user = Depends(get_current_user)
+    current_username: str = Depends(get_current_user_username)
 ) -> Any:
-    agents = await Agent.find({"created_by": PydanticObjectId(current_user.id)}).skip(skip).limit(limit).to_list()
+    agents = await Agent.find({"developer_username": current_username}).skip(skip).limit(limit).to_list()
     
     return [
         agent_models.AgentPublic(
             id=str(agent.id),
             name=agent.name,
             description=agent.description,
-            visibility=agent.visibility,
+            version=agent.version,
             tags=agent.tags,
-            agent_type=agent.agent_type,
-            file_refs=agent.file_refs,
-            is_active=agent.is_active,
-            created_by=agent.created_by,
-            created_at=agent.created_at,
-            updated_at=agent.updated_at
+            github_link=agent.github_link,
+            developer_username=agent.developer_username,
+            upload_date=agent.upload_date,
+            status=agent.status
         ) for agent in agents
     ]
 
@@ -89,11 +86,11 @@ async def read_agents_for_user(
     "/{agent_id}",
     response_model=agent_models.AgentPublic,
     summary="Get a specific agent by ID",
-    description="Retrieve details for a specific AI agent by its ID. Users can only access their own agents unless the agent is public."
+    description="Retrieve details for a specific AI agent by its ID. Developers can only access their own agents unless the agent is 'approved'."
 )
 async def read_agent(
     agent_id: str,
-    current_user = Depends(get_current_user)
+    current_username: str = Depends(get_current_user_username)
 ) -> Any:
     try:
         object_id = PydanticObjectId(agent_id)
@@ -104,34 +101,31 @@ async def read_agent(
     if not agent:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
-    # Check if user can access this agent (owner or public agent)
-    if str(agent.created_by) != current_user.id and agent.visibility != "public":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions to view this agent")
+    if agent.developer_username != current_username and agent.status != "approved":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions to view this agent or agent not approved")
     
     return agent_models.AgentPublic(
         id=str(agent.id),
         name=agent.name,
         description=agent.description,
-        visibility=agent.visibility,
+        version=agent.version,
         tags=agent.tags,
-        agent_type=agent.agent_type,
-        file_refs=agent.file_refs,
-        is_active=agent.is_active,
-        created_by=agent.created_by,
-        created_at=agent.created_at,
-        updated_at=agent.updated_at
+        github_link=agent.github_link,
+        developer_username=agent.developer_username,
+        upload_date=agent.upload_date,
+        status=agent.status
     )
 
 @router.put(
     "/{agent_id}",
     response_model=agent_models.AgentPublic,
     summary="Update an agent",
-    description="Update details of an existing AI agent. Only the original creator can update their agent."
+    description="Update details of an existing AI agent. Only the original developer can update their agent."
 )
 async def update_agent(
     agent_id: str,
     agent_in: agent_models.AgentUpdate,
-    current_user = Depends(get_current_user)
+    current_username: str = Depends(get_current_user_username)
 ) -> Any:
     try:
         object_id = PydanticObjectId(agent_id)
@@ -141,8 +135,7 @@ async def update_agent(
 
     if not agent:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
-    
-    if str(agent.created_by) != current_user.id:
+    if agent.developer_username != current_username:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions to update this agent")
 
     try:
@@ -154,34 +147,29 @@ async def update_agent(
         if hasattr(agent, field):
             setattr(agent, field, value)
 
-    # Update the updated_at timestamp
-    agent.updated_at = datetime.now(timezone.utc)
-    
     updated_agent = await agent.save()
     
     return agent_models.AgentPublic(
         id=str(updated_agent.id),
         name=updated_agent.name,
         description=updated_agent.description,
-        visibility=updated_agent.visibility,
+        version=updated_agent.version,
         tags=updated_agent.tags,
-        agent_type=updated_agent.agent_type,
-        file_refs=updated_agent.file_refs,
-        is_active=updated_agent.is_active,
-        created_by=updated_agent.created_by,
-        created_at=updated_agent.created_at,
-        updated_at=updated_agent.updated_at
+        github_link=updated_agent.github_link,
+        developer_username=updated_agent.developer_username,
+        upload_date=updated_agent.upload_date,
+        status=updated_agent.status
     )
 
 @router.delete(
     "/{agent_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete an agent",
-    description="Delete an AI agent. Only the original creator can delete their agent."
+    description="Delete an AI agent. Only the original developer can delete their agent."
 )
 async def delete_agent(
     agent_id: str,
-    current_user = Depends(get_current_user)
+    current_username: str = Depends(get_current_user_username)
 ) -> None:
     try:
         object_id = PydanticObjectId(agent_id)
@@ -192,8 +180,16 @@ async def delete_agent(
     if not agent:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
-    if str(agent.created_by) != current_user.id:
+    if agent.developer_username != current_username:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions to delete this agent")
 
     await agent.delete()
     return None
+
+# Placeholder for public listing of approved agents (no auth needed)
+# @router.get("/public/approved", response_model=List[agent_models.AgentPublic], summary="List all approved public agents")
+# async def read_public_approved_agents(skip: int = 0, limit: int = 100) -> Any:
+#     approved_agents = [
+#         agent for agent in fake_agents_db.values() if agent.status == "approved"
+#     ]
+#     return approved_agents[skip : skip + limit]

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     
     # MongoDB Configuration
     MONGODB_CONNECTION_STRING: str = "mongodb+srv://sireeshapurushotham:Reesha_943354@cluster0.jkbkuqi.mongodb.net/"
+    MONGODB_LOCAL_CONNECTION_STRING: str = "mongodb://localhost:27017/"
     DATABASE_NAME: str = "ai_pills_db"
     
     # Optional MongoDB settings
