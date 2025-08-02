@@ -8,6 +8,7 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: EmailStr = Field(..., description="User's email address.", example="user@example.com")
     name: str = Field(..., description="User's full name.", example="John Doe")
+    phone: Optional[str] = Field(None, description="User's phone number with country code.", example="+1234567890")
     role: str = Field(default="developer", description="User's role in the system.", example="developer")
 
 class UserCreate(UserBase):

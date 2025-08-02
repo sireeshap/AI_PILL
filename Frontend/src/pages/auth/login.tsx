@@ -17,7 +17,7 @@ const LoginPage: NextPage = () => {
     setError(null);
     setLoading(true);
     // In a real app, use environment variables for API base URL
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
 
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login/token`, {

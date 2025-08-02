@@ -4,10 +4,12 @@ import { NextPage } from 'next';
 import { Container, TextField, Button, Typography, Box, Paper, CircularProgress, Alert } from '@mui/material'; // Added CircularProgress, Alert
 import Link from 'next/link';
 import { useRouter } from 'next/router'; // Added useRouter
+import PhoneNumberInput from '../../components/common/PhoneNumberInput';
 
 const RegisterPage: NextPage = () => {
-  const [username, setUsername] = useState('');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -19,13 +21,13 @@ const RegisterPage: NextPage = () => {
     setError(null);
     setMessage(null);
     setLoading(true);
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
 
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ name, email, phone: phone || undefined, password }),
       });
 
       const data = await response.json(); // Attempt to parse JSON for both success and error
@@ -60,13 +62,13 @@ const RegisterPage: NextPage = () => {
             margin="normal"
             required
             fullWidth
-            id="username"
-            label="Username"
-            name="username"
-            autoComplete="username"
+            id="name"
+            label="Full Name"
+            name="name"
+            autoComplete="name"
             autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             disabled={loading}
           />
           <TextField
@@ -81,6 +83,15 @@ const RegisterPage: NextPage = () => {
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
           />
+          
+          <PhoneNumberInput
+            value={phone}
+            onChange={setPhone}
+            disabled={loading}
+            label="Phone Number (Optional)"
+            helperText="Enter your phone number with country code"
+          />
+          
           <TextField
             margin="normal"
             required

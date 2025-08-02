@@ -35,6 +35,7 @@ async def register_user(user_in: user_models.UserCreate) -> Any:
     user_data = User(
         email=user_in.email,
         name=user_in.name,
+        phone=user_in.phone,
         role=user_in.role,
         hashed_password=hashed_password,
         created_at=datetime.utcnow(),
@@ -48,6 +49,7 @@ async def register_user(user_in: user_models.UserCreate) -> Any:
             id=str(created_user.id),
             email=created_user.email,
             name=created_user.name,
+            phone=created_user.phone,
             role=created_user.role,
             created_at=created_user.created_at,
             updated_at=created_user.updated_at,
