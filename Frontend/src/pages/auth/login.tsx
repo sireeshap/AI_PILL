@@ -20,7 +20,7 @@ const LoginPage: NextPage = () => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login/token`, {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, // FastAPI's OAuth2PasswordRequestForm expects form data
         body: new URLSearchParams({ username: email, password: password }), // 'username' field in form can be email or actual username

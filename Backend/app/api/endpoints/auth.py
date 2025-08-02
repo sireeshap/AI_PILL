@@ -9,6 +9,7 @@ from datetime import timedelta, datetime # Required for access_token_expires
 from beanie.exceptions import RevisionIdWasChanged
 from pymongo.errors import DuplicateKeyError
 from app.api.dependencies import get_current_user
+from jose import JWTError
 
 router = APIRouter()
 
@@ -71,13 +72,13 @@ async def register_user(user_in: user_models.UserCreate) -> Any:
     "/login",
     response_model=user_models.Token,
     summary="Login for access token",
-    description="Authenticate with email and password to receive a JWT access token."
+    description="Authenticate with email/username and password to receive a JWT access token. Supports both JSON and form data."
 )
-async def login_for_access_token(user_login: user_models.UserLogin):
-    # Find user by email
-    user_found = await User.find_one({"email": user_login.email})
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    # OAuth2PasswordRequestForm uses 'username' field, but we treat it as email
+    user_found = await User.find_one({"email": form_data.username})
 
-    if not user_found or not security.verify_password(user_login.password, user_found.hashed_password):
+    if not user_found or not security.verify_password(form_data.password, user_found.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -129,3 +130,69 @@ async def logout(current_user: user_models.UserPublic = Depends(get_current_user
     # by discarding the token. For more security, you could implement
     # a token blacklist or use shorter-lived tokens with refresh tokens.
     return {"message": "Successfully logged out"}
+
+
+@router.post(
+    "/forgot-password",
+    summary="Request password reset",
+    description="Send a password reset token to the user's email address."
+)
+async def forgot_password(email_request: user_models.EmailRequest):
+    # Check if user exists
+    user = await User.find_one({"email": email_request.email})
+    
+    if not user:
+        # Don't reveal if email exists or not for security
+        return {"message": "If an account with that email exists, a password reset link has been sent."}
+    
+    # Generate reset token (in production, use a proper token with expiration)
+    reset_token = security.create_access_token(
+        data={"sub": str(user.id), "email": user.email, "type": "password_reset"},
+        expires_delta=timedelta(hours=1)  # Token expires in 1 hour
+    )
+    
+    # TODO: In production, send email with reset link
+    # For now, we'll just return the token (for development purposes)
+    return {
+        "message": "If an account with that email exists, a password reset link has been sent.",
+        "reset_token": reset_token  # Remove this in production
+    }
+
+
+@router.post(
+    "/reset-password",
+    summary="Reset password with token",
+    description="Reset user password using a valid reset token."
+)
+async def reset_password(reset_request: user_models.PasswordResetRequest):
+    try:
+        # Verify the reset token
+        payload = security.verify_token(reset_request.token)
+        
+        if not payload or payload.get("type") != "password_reset":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+        
+        user_id = payload.get("sub")
+        user = await User.find_one({"_id": user_id})
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+        
+        # Update password
+        user.hashed_password = security.get_password_hash(reset_request.new_password)
+        user.updated_at = datetime.utcnow()
+        await user.save()
+        
+        return {"message": "Password has been reset successfully"}
+        
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )

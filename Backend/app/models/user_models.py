@@ -8,7 +8,7 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: EmailStr = Field(..., description="User's email address.", example="user@example.com")
     name: str = Field(..., description="User's full name.", example="John Doe")
-    phone: Optional[str] = Field(None, description="User's phone number with country code.", example="+1234567890")
+    phone: str = Field(..., description="User's phone number with country code.", example="+1234567890")
     role: str = Field(default="developer", description="User's role in the system.", example="developer")
 
 class UserCreate(UserBase):
@@ -54,3 +54,10 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = Field(None, description="Username extracted from the token.", example="john_doe")
+
+class EmailRequest(BaseModel):
+    email: EmailStr = Field(..., description="Email address for password reset.", example="user@example.com")
+
+class PasswordResetRequest(BaseModel):
+    token: str = Field(..., description="Password reset token.", example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+    new_password: str = Field(..., description="New password.", min_length=8, example="newSecureP@ssw0rd")

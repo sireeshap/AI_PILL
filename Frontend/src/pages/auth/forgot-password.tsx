@@ -11,30 +11,29 @@ const ForgotPasswordPage: NextPage = () => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setMessage(''); // Clear previous messages
-    console.log('Forgot password attempt for:', { email });
-    // Placeholder for API call to backend
-    // Example:
-    // try {
-    //   // Assuming your backend has an endpoint like /api/v1/auth/request-password-reset
-    //   const response = await fetch('/api/proxy/api/v1/auth/request-password-reset', { // Example proxy URL
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ email })
-    //   });
-    //   if (response.ok) {
-    //     setMessage('If an account with that email exists, a password reset link has been sent.');
-    //     console.log('Password reset link request successful.');
-    //   } else {
-    //     const errorData = await response.json();
-    //     setMessage(errorData.detail || 'Failed to send reset link. Please try again.');
-    //     console.error('Password reset link request failed:', errorData.detail);
-    //   }
-    // } catch (error) {
-    //   setMessage('An error occurred. Please try again.');
-    //   console.error('Password reset link request error:', error);
-    // }
-    // For placeholder:
-    setMessage(`(Placeholder) If an account with email ${email} exists, a reset link would be sent.`);
+    
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMessage('If an account with that email exists, a password reset link has been sent.');
+        console.log('Password reset link request successful:', data);
+      } else {
+        setMessage(data.detail || 'Failed to send reset link. Please try again.');
+        console.error('Password reset link request failed:', data);
+      }
+    } catch (error) {
+      setMessage('An error occurred. Please try again.');
+      console.error('Password reset link request error:', error);
+    }
   };
 
   return (

@@ -88,13 +88,6 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
               disabled={disabled}
               InputProps={{
                 ...params.InputProps,
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Typography sx={{ fontSize: '1.2em' }}>
-                      {selectedCountry.flag}
-                    </Typography>
-                  </InputAdornment>
-                ),
               }}
             />
           )}

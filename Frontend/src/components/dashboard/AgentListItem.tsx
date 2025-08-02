@@ -10,13 +10,21 @@ import Link from 'next/link';
 export interface Agent {
   id: string | number; // FastAPI might return int, ensure consistency. Using string for broader compatibility.
   name: string;
-  version: string;
-  status: string; // e.g., 'pending_review', 'approved', 'rejected'
   description?: string;
+  visibility: string; // 'public' or 'private' - updated to match new API schema
+  tags?: string[];
+  agent_type: string; // Type of the AI agent
+  file_refs?: string[];
+  is_active?: boolean;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  // Legacy fields for backward compatibility
+  version?: string;
   developer_username?: string; // From FastAPI AgentPublic
   upload_date?: string;      // From FastAPI AgentPublic (ISO string)
-  tags?: string[];             // From FastAPI AgentPublic
   github_link?: string;      // From FastAPI AgentPublic
+  status?: string; // Legacy field - map to visibility for compatibility
 }
 
 interface AgentListItemProps {
@@ -27,14 +35,18 @@ interface AgentListItemProps {
 
 const AgentListItem: React.FC<AgentListItemProps> = ({ agent, onEdit, onDelete }) => {
 
-  const getStatusChipColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'success';
-      case 'rejected': return 'error';
-      case 'pending_review': return 'warning';
-      case 'suspended': return 'default';
+  const getStatusChipColor = (visibility: string) => {
+    switch (visibility) {
+      case 'public': return 'success';
+      case 'private': return 'default';
       default: return 'info';
     }
+  };
+
+  const getStatusLabel = (agent: Agent) => {
+    // Handle both new visibility field and legacy status field
+    const displayValue = agent.visibility || agent.status || 'private';
+    return displayValue.replace('_', ' ');
   };
 
   return (
@@ -61,28 +73,30 @@ const AgentListItem: React.FC<AgentListItemProps> = ({ agent, onEdit, onDelete }
             </Link>
           }
           secondary={
-            <>
-              <Typography component="div" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Developer: {agent.developer_username || 'N/A'} | Version: {agent.version}
+            <Box component="div">
+              <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Developer: {agent.developer_username || 'Unknown'} 
+                {agent.version && ` | Version: ${agent.version}`}
+                {agent.agent_type && ` | Type: ${agent.agent_type}`}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5}}>
                 <Typography component="span" variant="body2" color="text.secondary" sx={{mr: 0.5}}>Status:</Typography>
                 <Chip
-                    label={agent.status.replace('_', ' ')}
-                    color={getStatusChipColor(agent.status)}
+                    label={getStatusLabel(agent)}
+                    color={getStatusChipColor(agent.visibility || agent.status || 'private')}
                     size="small"
                 />
               </Box>
               {agent.upload_date && (
-                <Typography component="div" variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                   Uploaded: {new Date(agent.upload_date).toLocaleDateString()}
                 </Typography>
               )}
               {agent.description && (
-                <Typography component="div" variant="body2" color="text.secondary" sx={{
+                <Typography component="span" variant="body2" color="text.secondary" sx={{
+                    display: '-webkit-box',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    display: '-webkit-box',
                     WebkitLineClamp: 2, // Show approx 2 lines
                     WebkitBoxOrient: 'vertical',
                     mb: 1
@@ -96,7 +110,7 @@ const AgentListItem: React.FC<AgentListItemProps> = ({ agent, onEdit, onDelete }
                   {agent.tags.length > 3 && <Chip label={`+${agent.tags.length - 3}`} size="small" />}
                 </Box>
               )}
-            </>
+            </Box>
           }
         />
       </ListItem>

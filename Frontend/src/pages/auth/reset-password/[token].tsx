@@ -29,28 +29,29 @@ const ResetPasswordPage: NextPage = () => {
     }
 
     console.log('Reset password attempt for token:', token, 'with new password.');
-    // Placeholder for API call to backend (e.g., /api/v1/auth/reset-password)
-    // Example:
-    // try {
-    //   const response = await fetch('/api/proxy/api/v1/auth/reset-password', { // Example proxy URL
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ token: token, new_password: password })
-    //   });
-    //   if (response.ok) {
-    //     setMessage('Your password has been reset successfully! You can now sign in with your new password.');
-    //     // Optionally redirect to login after a delay
-    //     // setTimeout(() => router.push('/auth/login'), 3000);
-    //   } else {
-    //     const errorData = await response.json();
-    //     setError(errorData.detail || 'Failed to reset password. The link may be invalid or expired.');
-    //   }
-    // } catch (err) {
-    //   setError('An error occurred. Please try again.');
-    //   console.error('Reset password request error:', err);
-    // }
-    // For placeholder:
-    setMessage(`(Placeholder) Password for token ${token} would be reset.`);
+    
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, new_password: password })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMessage('Your password has been reset successfully! You can now sign in with your new password.');
+        // Optionally redirect to login after a delay
+        // setTimeout(() => router.push('/auth/login'), 3000);
+      } else {
+        setError(data.detail || 'Failed to reset password. The link may be invalid or expired.');
+      }
+    } catch (error) {
+      setError('An error occurred. Please try again.');
+      console.error('Reset password request error:', error);
+    }
   };
 
   return (

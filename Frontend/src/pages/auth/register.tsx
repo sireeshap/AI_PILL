@@ -1,63 +1,150 @@
 // In ai_pills/frontend/client_nextjs/src/pages/auth/register.tsx
 import React, { useState } from 'react';
 import { NextPage } from 'next';
-import { Container, TextField, Button, Typography, Box, Paper, CircularProgress, Alert } from '@mui/material'; // Added CircularProgress, Alert
+import {
+  Container,
+  Paper,
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  Link as MuiLink,
+  CircularProgress,
+} from '@mui/material';
 import Link from 'next/link';
-import { useRouter } from 'next/router'; // Added useRouter
+import { useRouter } from 'next/router';
 import PhoneNumberInput from '../../components/common/PhoneNumberInput';
 
+interface RegisterFormData {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+}
+
 const RegisterPage: NextPage = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
   const router = useRouter();
+  const [formData, setFormData] = useState<RegisterFormData>({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleInputChange = (field: keyof RegisterFormData) => (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: event.target.value
+    }));
+    // Clear error when user starts typing
+    if (error) setError(null);
+  };
+
+  const handlePhoneChange = (phone: string) => {
+    setFormData(prev => ({
+      ...prev,
+      phone
+    }));
+    if (error) setError(null);
+  };
+
+  const validateForm = (): string | null => {
+    if (!formData.name.trim()) return 'Name is required';
+    if (!formData.email.trim()) return 'Email is required';
+    if (!formData.phone.trim()) return 'Phone number is required';
+    if (!formData.password) return 'Password is required';
+    if (formData.password !== formData.confirmPassword) return 'Passwords do not match';
+    if (formData.password.length < 6) return 'Password must be at least 6 characters';
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) return 'Please enter a valid email address';
+    
+    return null;
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError(null);
-    setMessage(null);
+    
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setLoading(true);
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
+    setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch('http://127.0.0.1:8000/api/v1/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone: phone || undefined, password }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim(),
+          password: formData.password,
+        }),
       });
 
-      const data = await response.json(); // Attempt to parse JSON for both success and error
+      const data = await response.json();
 
       if (response.ok) {
-        console.log('Registration successful:', data);
-        setMessage('Registration successful! Please proceed to login.');
-        // Optionally redirect to login after a delay or on button click
-        // setTimeout(() => router.push('/auth/login'), 3000);
+        setSuccess(true);
+        setTimeout(() => {
+          router.push('/auth/login?message=Registration successful! Please log in.');
+        }, 2000);
       } else {
         setError(data.detail || 'Registration failed. Please try again.');
-        console.error('Registration failed:', data);
       }
     } catch (err) {
-      console.error('Registration request error:', err);
-      setError('An unexpected error occurred during registration. Please try again later.');
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  if (success) {
+    return (
+      <Container maxWidth="sm" sx={{ mt: 8 }}>
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Registration successful! Redirecting to login...
+          </Alert>
+        </Paper>
+      </Container>
+    );
+  }
+
   return (
-    <Container component="main" maxWidth="xs">
-      <Paper elevation={3} sx={{ padding: 4, marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography component="h1" variant="h5">
-          Sign Up
-        </Typography>
-        {error && <Alert severity="error" sx={{ mt: 2, width: '100%' }}>{error}</Alert>}
-        {message && <Alert severity="success" sx={{ mt: 2, width: '100%' }}>{message}</Alert>}
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
+    <Container maxWidth="sm" sx={{ mt: 8 }}>
+      <Paper elevation={3} sx={{ p: 4 }}>
+        <Box sx={{ textAlign: 'center', mb: 3 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Create Account
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Join AI Pills to discover and share AI agents
+          </Typography>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
           <TextField
             margin="normal"
             required
@@ -67,10 +154,11 @@ const RegisterPage: NextPage = () => {
             name="name"
             autoComplete="name"
             autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={formData.name}
+            onChange={handleInputChange('name')}
             disabled={loading}
           />
+
           <TextField
             margin="normal"
             required
@@ -79,19 +167,20 @@ const RegisterPage: NextPage = () => {
             label="Email Address"
             name="email"
             autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            value={formData.email}
+            onChange={handleInputChange('email')}
             disabled={loading}
           />
-          
+
           <PhoneNumberInput
-            value={phone}
-            onChange={setPhone}
+            value={formData.phone}
+            onChange={handlePhoneChange}
+            required
+            label="Phone Number"
             disabled={loading}
-            label="Phone Number (Optional)"
-            helperText="Enter your phone number with country code"
           />
-          
+
           <TextField
             margin="normal"
             required
@@ -101,25 +190,44 @@ const RegisterPage: NextPage = () => {
             type="password"
             id="password"
             autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={formData.password}
+            onChange={handleInputChange('password')}
+            disabled={loading}
+            helperText="Minimum 6 characters"
+          />
+
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="confirmPassword"
+            label="Confirm Password"
+            type="password"
+            id="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleInputChange('confirmPassword')}
             disabled={loading}
           />
+
           <Button
             type="submit"
             fullWidth
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
-            disabled={loading || !!message} // Disable if loading or if registration was successful
+            disabled={loading}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign Up'}
+            {loading ? <CircularProgress size={24} /> : 'Create Account'}
           </Button>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-            <Link href="/auth/login" passHref>
-              <Typography component="span" variant="body2" sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': {textDecoration: 'underline'} }}>
-                Already have an account? Sign in
-              </Typography>
-            </Link>
+
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2">
+              Already have an account?{' '}
+              <Link href="/auth/login" passHref>
+                <MuiLink component="span" sx={{ cursor: 'pointer' }}>
+                  Sign in
+                </MuiLink>
+              </Link>
+            </Typography>
           </Box>
         </Box>
       </Paper>

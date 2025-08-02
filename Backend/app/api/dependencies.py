@@ -41,21 +41,24 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPublic:
         return UserPublic(
             id=str(user.id),
             email=user.email,
-            name=user.name,
-            role=user.role,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-            last_login=user.last_login
+            name=getattr(user, 'name', 'Unknown User'),
+            phone=getattr(user, 'phone', '+1234567890'),  # Default phone if missing
+            role=getattr(user, 'role', 'developer'),
+            created_at=getattr(user, 'created_at', datetime.utcnow()),
+            updated_at=getattr(user, 'updated_at', datetime.utcnow()),
+            last_login=getattr(user, 'last_login', None)
         )
     except Exception:
         # If user lookup fails, create from token data
+        from datetime import datetime
         return UserPublic(
             id=user_id,
             email=email,
             name="Unknown User",
+            phone="+1234567890",  # Default phone
             role=role or "developer",
-            created_at=None,
-            updated_at=None,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
             last_login=None
         )
 
