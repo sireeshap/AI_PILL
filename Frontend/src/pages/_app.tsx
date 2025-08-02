@@ -7,6 +7,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { CacheProvider, EmotionCache } from '@emotion/react';
 import theme from '../theme'; // Adjusted path assuming theme.ts is in src/
 import createEmotionCache from '../createEmotionCache'; // Adjusted path
+import '../styles/globals.css'; // Import global styles
 
 // Client-side cache, shared for the whole session of the user in the browser.
 const clientSideEmotionCache = createEmotionCache();

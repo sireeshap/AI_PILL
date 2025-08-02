@@ -58,8 +58,10 @@ It also includes administrative functionalities for platform oversight.
 # CORS Configuration
 origins = [
     "http://localhost:3000", # Default origin for Next.js frontend dev server
+    "http://127.0.0.1:3000", # IPv4 localhost for Next.js frontend
+    "http://localhost:3001", # Alternative port for frontend
+    "http://127.0.0.1:3001", # IPv4 localhost alternative port
     # Add other origins as needed (e.g., your production frontend URL, other local dev ports)
-    # "http://127.0.0.1:3000", # Sometimes useful for local development
 ]
 
 app.add_middleware(

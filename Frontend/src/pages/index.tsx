@@ -13,56 +13,79 @@ import Head from 'next/head';
 
 
 interface HomePageProps {
-  agents: PublicAgent[];
-  error?: string;
+  // Remove props since we're not using getStaticProps anymore
 }
 
-const HomePage: NextPage<HomePageProps> = ({ agents: initialAgents, error: initialError }) => {
+const HomePage: NextPage<HomePageProps> = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredAgents, setFilteredAgents] = useState<PublicAgent[]>(initialAgents || []);
-  const [loading, setLoading] = useState<boolean>(false); // For client-side search loading
+  const [filteredAgents, setFilteredAgents] = useState<PublicAgent[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [allAgents, setAllAgents] = useState<PublicAgent[]>([]);
+
+  // Client-side data fetching
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_BASE_URL}/public/agents/`);
+        
+        if (!res.ok) {
+          throw new Error(`Failed to fetch agents. Status: ${res.status}`);
+        }
+        
+        const agents = await res.json();
+        setAllAgents(agents);
+        setFilteredAgents(agents);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error fetching agents:', err);
+        setError(err.message || 'Failed to load agents');
+        setAllAgents([]);
+        setFilteredAgents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAgents();
+  }, []);
 
   useEffect(() => {
-    if (!initialAgents) { // If initialAgents is null/undefined (e.g. due to error in GSP)
-        setFilteredAgents([]);
-        return;
-    }
     if (!searchTerm.trim()) {
-      setFilteredAgents(initialAgents);
+      setFilteredAgents(allAgents);
       return;
     }
-    setLoading(true);
+    
     const lowerSearchTerm = searchTerm.toLowerCase();
     const timer = setTimeout(() => {
-      const results = initialAgents.filter(agent =>
+      const results = allAgents.filter(agent =>
         agent.name.toLowerCase().includes(lowerSearchTerm) ||
         agent.description.toLowerCase().includes(lowerSearchTerm) ||
-        (agent.tags && agent.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm))) ||
-        agent.developer_username.toLowerCase().includes(lowerSearchTerm) // Changed from developerUsername
+        (agent.tags && agent.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm)))
       );
       setFilteredAgents(results);
-      setLoading(false);
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchTerm, initialAgents]);
+  }, [searchTerm, allAgents]);
 
-  if (initialError) {
+  if (error) {
     return (
         <Container sx={{ py: 8, textAlign: 'center' }}>
             <Head><title>Error - AI Pills</title></Head>
-            <Alert severity="error" sx={{justifyContent: 'center'}}>Error loading agents: {initialError}</Alert>
+            <Alert severity="error" sx={{justifyContent: 'center'}}>Error loading agents: {error}</Alert>
         </Container>
     );
   }
 
-  // This case handles if GSP returns empty props but no error (e.g. API returns empty list successfully)
-  // or if initialAgents is somehow null/undefined without an error.
-  if (!initialAgents && !loading && !initialError) {
+  // Show loading state
+  if (loading) {
     return (
         <Container sx={{ py: 8, textAlign: 'center' }}>
              <Head><title>AI Agent Marketplace - AI Pills</title></Head>
-            <Typography>No agents available at the moment. Please check back later!</Typography>
+            <CircularProgress size={50} />
+            <Typography sx={{ mt: 2 }}>Loading agents...</Typography>
         </Container>
     );
   }
@@ -134,35 +157,37 @@ const HomePage: NextPage<HomePageProps> = ({ agents: initialAgents, error: initi
   );
 };
 
-export const getStaticProps: GetStaticProps<HomePageProps> = async () => {
-  try {
-    const res = await fetch(`${API_BASE_URL}/public/agents/`);
+// Temporarily remove getStaticProps to fix the build issue
+// We'll use client-side data fetching instead
+// export const getStaticProps: GetStaticProps<HomePageProps> = async () => {
+//   try {
+//     const res = await fetch(`${API_BASE_URL}/public/agents/`);
 
-    if (!res.ok) {
-      let errorDetail = `Failed to fetch agents. Status: ${res.status}`;
-      try {
-        const errorData = await res.json();
-        errorDetail = errorData.detail || errorDetail;
-      } catch (e) { /* Ignore if error response is not JSON */ }
-      throw new Error(errorDetail);
-    }
-    const agentsData: PublicAgent[] = await res.json();
+//     if (!res.ok) {
+//       let errorDetail = `Failed to fetch agents. Status: ${res.status}`;
+//       try {
+//         const errorData = await res.json();
+//         errorDetail = errorData.detail || errorDetail;
+//       } catch (e) { /* Ignore if error response is not JSON */ }
+//       throw new Error(errorDetail);
+//     }
+//     const agentsData: PublicAgent[] = await res.json();
 
-    return {
-      props: {
-        agents: agentsData,
-      },
-      revalidate: 300, // Re-generate the page every 5 minutes
-    };
-  } catch (error: any) {
-    console.error("Error in getStaticProps for HomePage:", error);
-    return {
-      props: {
-        agents: [],
-        error: error.message || "An unknown error occurred while fetching agents.",
-      },
-    };
-  }
-};
+//     return {
+//       props: {
+//         agents: agentsData,
+//       },
+//       revalidate: 300, // Re-generate the page every 5 minutes
+//     };
+//   } catch (error: any) {
+//     console.error("Error in getStaticProps for HomePage:", error);
+//     return {
+//       props: {
+//         agents: [],
+//         error: error.message || "An unknown error occurred while fetching agents.",
+//       },
+//     };
+//   }
+// };
 
 export default HomePage;
