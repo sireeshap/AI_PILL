@@ -7,6 +7,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { CacheProvider, EmotionCache } from '@emotion/react';
 import theme from '../theme'; // Adjusted path assuming theme.ts is in src/
 import createEmotionCache from '../createEmotionCache'; // Adjusted path
+import { AuthProvider } from '../contexts/AuthContext'; // Add AuthProvider
 import '../styles/globals.css'; // Import global styles
 
 // Client-side cache, shared for the whole session of the user in the browser.
@@ -25,9 +26,11 @@ export default function MyApp(props: MyAppProps) {
         <title>AI Pills - Next.js Frontend</title>
       </Head>
       <ThemeProvider theme={theme}>
-        {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
-        <CssBaseline />
-        <Component {...pageProps} />
+        <AuthProvider>
+          {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
+          <CssBaseline />
+          <Component {...pageProps} />
+        </AuthProvider>
       </ThemeProvider>
     </CacheProvider>
   );

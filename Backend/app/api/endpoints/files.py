@@ -1,14 +1,39 @@
 # app/api/endpoints/files.py
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from typing import List, Any, Optional
+import zipfile
+import tempfile
+import mimetypes
+from pathlib import Path
 from app.models import file_models
 from app.models.file_models import File as FileModel
 from app.api.dependencies import get_current_user
+from app.core.config import settings
+from app.services.storage_service import get_storage_service, StorageError
 from beanie import PydanticObjectId
 import os
 from datetime import datetime
 
 router = APIRouter()
+
+# Initialize storage service
+storage_service = get_storage_service()
+
+# Get storage service instance
+storage_service = get_storage_service()
+
+# File validation constants from centralized config
+MAX_FILE_SIZE = settings.MAX_FILE_SIZE
+SUPPORTED_FORMATS = {
+    'web-based': settings.ALLOWED_ARCHIVE_EXTENSIONS,
+    'api-based': settings.ALLOWED_ARCHIVE_EXTENSIONS,
+    'document-processor': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.pdf', '.docx', '.txt'],
+    'code-assistant': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.py', '.js', '.ts'],
+    'content-creator': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.md', '.html'],
+    'data-analyst': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.csv', '.json', '.xlsx'],
+    'automation': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.yaml', '.yml'],
+    'other': settings.ALLOWED_ARCHIVE_EXTENSIONS
+}
 
 @router.post(
     "/",
@@ -26,15 +51,34 @@ async def upload_file(
         # Read file content
         file_content = await file.read()
         
-        # For now, we'll use a simple file storage (in production, use GridFS or cloud storage)
-        storage_path = f"/uploads/{file.filename}"
+        # Validate file size using centralized config
+        if len(file_content) > settings.MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File size exceeds maximum allowed size of {settings.MAX_FILE_SIZE // (1024*1024)}MB"
+            )
         
-        # Create file metadata
+        # Use storage service to store the file
+        try:
+            storage_path, file_url = storage_service.store_file(
+                file_content=file_content,
+                filename=file.filename,
+                user_id=current_user.id,
+                file_type="general",
+                content_type=file.content_type
+            )
+        except StorageError as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Storage error: {str(e)}"
+            )
+        
+        # Create file metadata using centralized config
         file_data = FileModel(
             filename=file.filename,
-            content_type=file.content_type,
+            content_type=file.content_type or mimetypes.guess_type(file.filename)[0] or 'application/octet-stream',
             size_bytes=len(file_content),
-            storage_type="gridfs",  # or "local" for development
+            storage_type=settings.STORAGE_TYPE.value,
             storage_path=storage_path,
             uploaded_by=PydanticObjectId(current_user.id),
             agent_id=PydanticObjectId(agent_id) if agent_id else None,
@@ -60,6 +104,150 @@ async def upload_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error uploading file: {str(e)}",
         )
+
+@router.post(
+    "/agents",
+    response_model=List[file_models.FilePublic],
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload agent files",
+    description="Upload one or more files for an AI agent with validation based on agent category."
+)
+async def upload_agent_files(
+    files: List[UploadFile] = File(...),
+    agent_category: str = Form(...),
+    agent_id: Optional[str] = Form(None),
+    current_user = Depends(get_current_user)
+) -> Any:
+    """
+    Upload files for an AI agent with validation based on category.
+    Supports ZIP files, Python scripts, documentation, and other agent formats.
+    """
+    
+    # Define supported file types by category (using centralized config)
+    SUPPORTED_FORMATS = {
+        'web-based': settings.ALLOWED_ARCHIVE_EXTENSIONS,
+        'local-opensource': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.py', '.ipynb', '.json', '.yaml', '.yml', '.dockerfile'],
+        'customgpt': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.txt', '.pdf', '.docx', '.csv', '.html', '.json', '.md'],
+        'conversational': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.json', '.txt', '.csv', '.yaml', '.py'],
+        'document-processor': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.py', '.json', '.pdf', '.docx', '.txt'],
+        'code-assistant': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.py', '.js', '.ts', '.json', '.yaml', '.md'],
+        'content-creator': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.txt', '.md', '.json', '.html', '.css'],
+        'data-analyst': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.py', '.ipynb', '.csv', '.json', '.sql'],
+        'automation': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.py', '.json', '.yaml', '.js'],
+        'other': settings.ALLOWED_ARCHIVE_EXTENSIONS + ['.py', '.js', '.json', '.yaml', '.txt', '.md']
+    }
+    
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+    uploaded_files = []
+    
+    # Get allowed formats for the category
+    allowed_formats = SUPPORTED_FORMATS.get(agent_category, SUPPORTED_FORMATS['other'])
+    
+    for file in files:
+        # Validate file size using centralized config
+        file_content = await file.read()
+        if len(file_content) > settings.MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File {file.filename} exceeds maximum size of {settings.MAX_FILE_SIZE // (1024*1024)}MB"
+            )
+        
+        # Validate file extension using centralized config
+        file_extension = Path(file.filename).suffix.lower()
+        if file_extension not in allowed_formats:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"File format {file_extension} not supported for {agent_category} agents. "
+                       f"Supported formats: {', '.join(allowed_formats)}"
+            )
+        
+        # Additional validation for ZIP files
+        if file_extension == '.zip':
+            try:
+                # Create a temporary file to validate ZIP contents
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+                    temp_file.write(file_content)
+                    temp_file.flush()
+                    
+                    # Validate ZIP file integrity
+                    with zipfile.ZipFile(temp_file.name, 'r') as zip_ref:
+                        # Check if ZIP contains valid files
+                        file_list = zip_ref.namelist()
+                        if not file_list:
+                            raise HTTPException(
+                                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail="ZIP file is empty or corrupted"
+                            )
+                        
+                        # Basic security check - no directory traversal
+                        for zip_file in file_list:
+                            if '..' in zip_file or zip_file.startswith('/'):
+                                raise HTTPException(
+                                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                    detail="ZIP file contains potentially unsafe paths"
+                                )
+                    
+                    # Clean up temp file
+                    os.unlink(temp_file.name)
+                    
+            except zipfile.BadZipFile:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"File {file.filename} is not a valid ZIP file"
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Error validating ZIP file {file.filename}: {str(e)}"
+                )
+        
+        # Use storage service to store the file
+        try:
+            storage_path, file_url = storage_service.store_file(
+                file_content=file_content,
+                filename=file.filename,
+                user_id=current_user.id,
+                file_type="agents",  # Specific type for agent files
+                content_type=file.content_type
+            )
+        except StorageError as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Storage error for {file.filename}: {str(e)}"
+            )
+        
+        # Create file metadata using centralized storage config
+        file_data = FileModel(
+            filename=file.filename,
+            content_type=file.content_type or mimetypes.guess_type(file.filename)[0] or 'application/octet-stream',
+            size_bytes=len(file_content),
+            storage_type=settings.STORAGE_TYPE.value,
+            storage_path=storage_path,
+            uploaded_by=PydanticObjectId(current_user.id),
+            agent_id=PydanticObjectId(agent_id) if agent_id else None,
+            created_at=datetime.utcnow()
+        )
+        
+        # Save file metadata
+        created_file = await file_data.insert()
+        
+        # Add to response list
+        uploaded_files.append(file_models.FilePublic(
+            id=str(created_file.id),
+            filename=created_file.filename,
+            content_type=created_file.content_type,
+            size_bytes=created_file.size_bytes,
+            storage_type=created_file.storage_type,
+            storage_path=created_file.storage_path,
+            uploaded_by=created_file.uploaded_by,
+            agent_id=created_file.agent_id,
+            created_at=created_file.created_at
+        ))
+        
+        # Reset file position for next iteration
+        await file.seek(0)
+    
+    return uploaded_files
 
 @router.get(
     "/",

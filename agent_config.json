@@ -1,0 +1,65 @@
+{
+  "name": "Document Processor Agent",
+  "version": "1.0.0",
+  "category": "document-processor",
+  "description": "An AI agent that processes documents and provides analysis including word counts, summaries, topic extraction, and sentiment analysis.",
+  "author": "AI Pills Platform",
+  "license": "MIT",
+  "tags": ["document-processing", "nlp", "text-analysis", "sentiment-analysis"],
+  "requirements": {
+    "python": ">=3.7",
+    "packages": [
+      "PyPDF2>=2.0.0",
+      "python-docx>=0.8.11"
+    ]
+  },
+  "entry_point": "sample_agent.py",
+  "supported_formats": [".txt", ".md", ".pdf", ".docx"],
+  "configuration": {
+    "model_name": {
+      "type": "string",
+      "default": "default",
+      "description": "Name of the analysis model to use"
+    },
+    "max_file_size": {
+      "type": "integer",
+      "default": 10485760,
+      "description": "Maximum file size in bytes (10MB)"
+    },
+    "enable_sentiment": {
+      "type": "boolean", 
+      "default": true,
+      "description": "Enable sentiment analysis feature"
+    }
+  },
+  "api": {
+    "endpoints": [
+      {
+        "path": "/analyze",
+        "method": "POST",
+        "description": "Analyze a document",
+        "parameters": {
+          "file": "multipart/form-data file upload",
+          "options": "JSON object with analysis options"
+        }
+      },
+      {
+        "path": "/health",
+        "method": "GET",
+        "description": "Health check endpoint"
+      }
+    ]
+  },
+  "examples": [
+    {
+      "name": "Basic Text Analysis",
+      "command": "python sample_agent.py document.txt",
+      "description": "Analyze a simple text document"
+    },
+    {
+      "name": "PDF Processing",
+      "command": "python sample_agent.py report.pdf",
+      "description": "Process and analyze a PDF document"
+    }
+  ]
+}

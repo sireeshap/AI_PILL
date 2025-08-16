@@ -7,7 +7,7 @@ from datetime import datetime
 
 class UserBase(BaseModel):
     email: EmailStr = Field(..., description="User's email address.", example="user@example.com")
-    name: str = Field(..., description="User's full name.", example="John Doe")
+    username: str = Field(..., description="User's username.", example="johndoe")
     phone: str = Field(..., description="User's phone number with country code.", example="+1234567890")
     role: str = Field(default="developer", description="User's role in the system.", example="developer")
 
@@ -29,6 +29,7 @@ class User(Document, UserBase):
         name = "users"
         indexes = [
             IndexModel([("email", 1)], unique=True),
+            IndexModel([("username", 1)], unique=True),
             IndexModel([("role", 1)]),
         ]
 
@@ -44,6 +45,7 @@ class UserInDBBase(UserBase):
 
 class UserPublic(UserBase):
     id: str = Field(..., description="Unique identifier for the user.", example="507f1f77bcf86cd799439011")
+    is_admin: bool = Field(default=False, description="Whether the user has admin privileges.")
     created_at: datetime = Field(..., description="Account creation timestamp.")
     updated_at: datetime = Field(..., description="Last update timestamp.")
     last_login: Optional[datetime] = Field(None, description="Last login timestamp.")
@@ -61,3 +63,8 @@ class EmailRequest(BaseModel):
 class PasswordResetRequest(BaseModel):
     token: str = Field(..., description="Password reset token.", example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
     new_password: str = Field(..., description="New password.", min_length=8, example="newSecureP@ssw0rd")
+
+class LoginResponse(BaseModel):
+    access_token: str = Field(..., description="JWT access token.", example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+    token_type: str = Field(default="bearer", description="Token type.", example="bearer")
+    user: UserPublic = Field(..., description="Current user information.")

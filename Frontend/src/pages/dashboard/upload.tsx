@@ -61,6 +61,7 @@ const UploadAgentPage: NextPage = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    alert("6")
     setError(null);
     setMessage(null);
 

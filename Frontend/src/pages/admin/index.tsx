@@ -1,12 +1,14 @@
 // In ai_pills/frontend/client_nextjs/src/pages/admin/index.tsx
 import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
-import { Container, Typography, Box, Tabs, Tab, CircularProgress, Alert, Paper, Button } from '@mui/material'; // Added Paper, Button
+import { Container, Typography, Box, Tabs, Tab, CircularProgress, Alert, Paper, Button } from '@mui/material'; 
 import AdminUserList, { AdminUser } from '../../components/admin/AdminUserList';
 import AdminAgentList, { AdminAgent } from '../../components/admin/AdminAgentList';
+import { AuthenticatedLayout } from '../../components/common/AuthenticatedLayout';
+import { withAdminAuth } from '../../components/common/withAuth';
 import PeopleIcon from '@mui/icons-material/People';
-import ExtensionIcon from '@mui/icons-material/Extension'; // Icon for agents/plugins
-import { fetchClient, getAccessToken } from '../../services/api';
+import ExtensionIcon from '@mui/icons-material/Extension';
+import { fetchClient } from '../../services/api';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -42,14 +44,6 @@ const AdminPage: NextPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      setError("Authentication required. Please log in as an admin. Redirecting to login...");
-      setLoading({ users: false, agents: false });
-      setTimeout(() => router.push('/auth/login'), 3000); // Redirect after showing message
-      return;
-    }
-
     let active = true; // To prevent state updates on unmounted component
 
     const fetchAdminData = async () => {
@@ -62,9 +56,6 @@ const AdminPage: NextPage = () => {
       } catch (err: any) {
         console.error('Failed to fetch admin users:', err);
         if (active) setError(prev => prev ? `${prev}\nUsers: ${err.message}` : `Users: ${err.message}`);
-        if (err.message && (err.message.includes('401') || err.message.includes('403'))) {
-            if (active) setTimeout(() => router.push('/auth/login'), 3000);
-        }
       } finally {
         if (active) setLoading(prev => ({ ...prev, users: false }));
       }
@@ -77,10 +68,6 @@ const AdminPage: NextPage = () => {
       } catch (err: any) {
         console.error('Failed to fetch admin agents:', err);
         if (active) setError(prev => prev ? `${prev}\nAgents: ${err.message}` : `Agents: ${err.message}`);
-        if (err.message && (err.message.includes('401') || err.message.includes('403'))) {
-            // This might cause double redirect if user fetch also failed, but okay for now
-            if (active) setTimeout(() => router.push('/auth/login'), 3000);
-        }
       } finally {
         if (active) setLoading(prev => ({ ...prev, agents: false }));
       }
@@ -88,7 +75,7 @@ const AdminPage: NextPage = () => {
 
     fetchAdminData();
     return () => { active = false; }; // Cleanup function
-  }, [router]);
+  }, []); // Remove router dependency since auth is handled by HOC
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -158,28 +145,12 @@ const AdminPage: NextPage = () => {
     }
   };
 
-  // Initial check for token before rendering anything complex
-  // This is a bit redundant with useEffect but can prevent flashing of UI before redirect
-  if (!getAccessToken() && !error) { // Check !error to avoid showing this if useEffect already set an auth error
-     return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4, textAlign: 'center' }}>
-            <Paper sx={{p:3}}>
-                <Alert severity="warning">
-                    Authentication required. Please log in as an admin.
-                    <Button onClick={() => router.push('/auth/login')} sx={{ml:2}} variant="outlined">Login</Button>
-                </Alert>
-            </Paper>
-        </Container>
-     );
-  }
-
-
   return (
-    <>
-    <Head>
+    <AuthenticatedLayout>
+      <Head>
         <title>Admin Panel - AI Pills</title>
-    </Head>
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      </Head>
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={0} sx={{ p: {xs:2, sm:3}, mb: 3, backgroundColor: 'transparent' }}>
         <Typography variant="h4" component="h1" gutterBottom sx={{fontWeight: 'bold'}}>
             Admin Panel
@@ -210,7 +181,8 @@ const AdminPage: NextPage = () => {
         </TabPanel>
       </Box>
     </Container>
-    </>
+    </AuthenticatedLayout>
   );
 };
-export default AdminPage;
+
+export default withAdminAuth(AdminPage);

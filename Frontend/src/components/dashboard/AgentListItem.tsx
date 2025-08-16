@@ -50,21 +50,60 @@ const AgentListItem: React.FC<AgentListItemProps> = ({ agent, onEdit, onDelete }
   };
 
   return (
-    <Paper elevation={2} sx={{ mb: 2, p: 1.5 }}>
+    <Paper elevation={2} sx={{ mb: 2, p: 1.5, position: 'relative' }}>
+      {/* Action buttons positioned in top right corner */}
+      <Box sx={{ 
+        position: 'absolute', 
+        top: 8, 
+        right: 8, 
+        display: 'flex', 
+        gap: 0.5,
+        zIndex: 1,
+        margin: '5px' 
+      }}>
+        <IconButton 
+          aria-label="edit" 
+          onClick={() => onEdit(agent.id)} 
+          title="Edit Agent"
+          size="small"
+          sx={{ 
+            color: '#1976d2', // Blue color for edit
+            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+            '&:hover': { 
+              backgroundColor: 'rgba(25, 118, 210, 0.2)',
+              color: '#1565c0' 
+            },
+            padding: '4px',
+            margin: '5px'
+          }}
+        >
+          <EditIcon fontSize="small"/>
+        </IconButton>
+        <IconButton 
+          aria-label="delete" 
+          onClick={() => onDelete(agent.id)} 
+          title="Delete Agent"
+          size="small"
+          sx={{ 
+            color: '#d32f2f', // Red color for delete
+            backgroundColor: 'rgba(211, 47, 47, 0.1)',
+            '&:hover': { 
+              backgroundColor: 'rgba(211, 47, 47, 0.2)',
+              color: '#c62828' 
+            },
+            padding: '4px',
+            margin: '5px'
+          }}
+        >
+          <DeleteIcon fontSize="small"/>
+        </IconButton>
+      </Box>
+      
       <ListItem
         disableGutters
-        secondaryAction={
-          <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', height: '100%'}}>
-            <IconButton edge="end" aria-label="edit" onClick={() => onEdit(agent.id)} sx={{ mb: 0.5 }} title="Edit Agent">
-              <EditIcon fontSize="small"/>
-            </IconButton>
-            <IconButton edge="end" aria-label="delete" onClick={() => onDelete(agent.id)} title="Delete Agent">
-              <DeleteIcon fontSize="small"/>
-            </IconButton>
-          </Box>
-        }
       >
         <ListItemText
+          sx={{ pr: 6 }} // Add right padding to avoid overlap with action buttons
           primary={
             <Link href={`/agents/${agent.id}`} passHref> {/* Public agent detail page */}
               <Typography component="span" variant="h6" color="primary" sx={{ cursor: 'pointer', textDecoration: 'none', '&:hover': { textDecoration: 'underline'} }}>

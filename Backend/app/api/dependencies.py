@@ -2,6 +2,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from datetime import datetime
 from app.core.security import SECRET_KEY, ALGORITHM # Re-using from auth
 from app.models.user_models import TokenData, UserPublic # Assuming UserPublic can represent a lightweight user
 from app.models.user_models import User
@@ -34,29 +35,35 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPublic:
     # In a real app, you'd fetch the user from DB to ensure they exist and are active
     # For now, we'll create a UserPublic object from the token data
     try:
+        print(f"🔍 Looking up user with ID: {user_id}")
         user = await User.get(PydanticObjectId(user_id))
+        print(f"🔍 Found user: {user}")
         if not user:
+            print("❌ User not found in database")
             raise credentials_exception
             
+        print(f"✅ User found: {user.email}")
         return UserPublic(
             id=str(user.id),
             email=user.email,
-            name=getattr(user, 'name', 'Unknown User'),
+            username=getattr(user, 'username', 'unknown_user'),
             phone=getattr(user, 'phone', '+1234567890'),  # Default phone if missing
             role=getattr(user, 'role', 'developer'),
+            is_admin=(getattr(user, 'role', 'developer') == 'admin'),
             created_at=getattr(user, 'created_at', datetime.utcnow()),
             updated_at=getattr(user, 'updated_at', datetime.utcnow()),
             last_login=getattr(user, 'last_login', None)
         )
-    except Exception:
+    except Exception as e:
         # If user lookup fails, create from token data
-        from datetime import datetime
+        print(f"❌ User lookup exception: {e}")
         return UserPublic(
             id=user_id,
             email=email,
-            name="Unknown User",
+            username="unknown_user",
             phone="+1234567890",  # Default phone
             role=role or "developer",
+            is_admin=(role == "admin"),
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
             last_login=None

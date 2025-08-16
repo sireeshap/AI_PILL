@@ -20,6 +20,21 @@ async def create_agent(
     agent_in: agent_models.AgentCreate,
     current_user = Depends(get_current_user)
 ) -> Any:
+    # Convert file_refs strings to PydanticObjectId if provided
+    file_refs = []
+    if agent_in.file_refs:
+        for file_id in agent_in.file_refs:
+            try:
+                if isinstance(file_id, str):
+                    file_refs.append(PydanticObjectId(file_id))
+                else:
+                    file_refs.append(file_id)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid file ID format: {file_id}"
+                )
+    
     # Create new agent
     agent_data = Agent(
         name=agent_in.name,
@@ -27,8 +42,11 @@ async def create_agent(
         visibility=agent_in.visibility,
         tags=agent_in.tags or [],
         agent_type=agent_in.agent_type,
-        file_refs=agent_in.file_refs or [],
+        category=agent_in.category,
+        github_link=agent_in.github_link,
+        file_refs=file_refs,
         is_active=agent_in.is_active,
+        copyright_confirmed=agent_in.copyright_confirmed,
         created_by=PydanticObjectId(current_user.id),
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc)
@@ -44,8 +62,11 @@ async def create_agent(
             visibility=created_agent.visibility,
             tags=created_agent.tags,
             agent_type=created_agent.agent_type,
+            category=created_agent.category,
+            github_link=created_agent.github_link,
             file_refs=created_agent.file_refs,
             is_active=created_agent.is_active,
+            copyright_confirmed=created_agent.copyright_confirmed,
             created_by=created_agent.created_by,
             created_at=created_agent.created_at,
             updated_at=created_agent.updated_at

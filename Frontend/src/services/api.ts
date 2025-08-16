@@ -28,8 +28,9 @@ export const getAuthHeader = (): Record<string, string> => {
 };
 
 // Generic fetch client
-interface FetchClientOptions extends RequestInit {
+interface FetchClientOptions extends Omit<RequestInit, 'body'> {
   includeAuthHeader?: boolean;
+  body?: BodyInit | Record<string, any> | null;
   // queryParams?: Record<string, string>; // For future use if building URLs with query params
 }
 
@@ -50,7 +51,7 @@ export async function fetchClient<T>(
 ): Promise<T> {
   const { includeAuthHeader = true, body, headers: customHeaders, ...restOptions } = options;
 
-  let headers: HeadersInit = { ...(customHeaders || {}) }; // Initialize with custom headers or empty object
+  let headers: Record<string, string> = { ...(customHeaders as Record<string, string> || {}) }; // Initialize with custom headers or empty object
 
   // Set Content-Type to application/json if body exists, is not FormData, and Content-Type isn't already set
   if (body && !(body instanceof FormData) && !headers['Content-Type'] && !headers['content-type']) {
@@ -62,9 +63,13 @@ export async function fetchClient<T>(
   }
 
   // Prepare body: stringify if it's an object and not FormData
-  let processedBody = body;
-  if (body && typeof body === 'object' && !(body instanceof FormData) && headers['Content-Type'] === 'application/json') {
-    processedBody = JSON.stringify(body);
+  let processedBody: BodyInit | null = null;
+  if (body) {
+    if (typeof body === 'object' && !(body instanceof FormData) && headers['Content-Type'] === 'application/json') {
+      processedBody = JSON.stringify(body);
+    } else if (typeof body === 'string' || body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams) {
+      processedBody = body as BodyInit;
+    }
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {

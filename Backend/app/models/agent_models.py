@@ -1,6 +1,6 @@
 # In ai_pills_fastapi_backend/app/models/agent_models.py
 from pydantic import BaseModel, Field # Added Field
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 from beanie import Document, PydanticObjectId
 from pymongo import IndexModel
@@ -11,11 +11,16 @@ class AgentBase(BaseModel):
     visibility: str = Field(default="private", description="Agent visibility: public or private.", example="public")
     tags: List[str] = Field(default=[], description="Tags associated with the agent for categorization.", example=["data-analysis", "nlp"])
     agent_type: str = Field(..., description="Type of the AI agent.", example="chatbot")
+    category: Optional[str] = Field(None, description="Category of the AI agent (web-based, local-opensource, etc.)", example="local-opensource")
+    github_link: Optional[str] = Field(None, description="GitHub repository link for the agent.", example="https://github.com/user/agent")
     file_refs: List[PydanticObjectId] = Field(default=[], description="References to uploaded files.")
     is_active: bool = Field(default=True, description="Whether the agent is active.")
+    copyright_confirmed: Optional[bool] = Field(None, description="Whether user confirmed copyright compliance.")
 
 class AgentCreate(AgentBase):
-    pass # All required fields are in AgentBase
+    category: str = Field(..., description="Category of the AI agent (required for creation)", example="local-opensource")
+    copyright_confirmed: bool = Field(..., description="User must confirm copyright compliance")
+    file_refs: List[Union[str, PydanticObjectId]] = Field(default=[], description="References to uploaded files (can be strings or ObjectIds).")
 
 class AgentUpdate(BaseModel):
     name: Optional[str] = Field(None, description="New name of the AI agent.")
@@ -23,6 +28,8 @@ class AgentUpdate(BaseModel):
     visibility: Optional[str] = Field(None, description="New visibility setting.")
     tags: Optional[List[str]] = Field(None, description="New list of tags for the agent.")
     agent_type: Optional[str] = Field(None, description="New agent type.")
+    category: Optional[str] = Field(None, description="New agent category.")
+    github_link: Optional[str] = Field(None, description="New GitHub repository link.")
     is_active: Optional[bool] = Field(None, description="New active status.")
 
 class Agent(Document, AgentBase):

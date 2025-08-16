@@ -17,7 +17,7 @@ import { useRouter } from 'next/router';
 import PhoneNumberInput from '../../components/common/PhoneNumberInput';
 
 interface RegisterFormData {
-  name: string;
+  username: string;
   email: string;
   phone: string;
   password: string;
@@ -27,7 +27,7 @@ interface RegisterFormData {
 const RegisterPage: NextPage = () => {
   const router = useRouter();
   const [formData, setFormData] = useState<RegisterFormData>({
-    name: '',
+    username: '',
     email: '',
     phone: '',
     password: '',
@@ -57,7 +57,7 @@ const RegisterPage: NextPage = () => {
   };
 
   const validateForm = (): string | null => {
-    if (!formData.name.trim()) return 'Name is required';
+    if (!formData.username.trim()) return 'Username is required';
     if (!formData.email.trim()) return 'Email is required';
     if (!formData.phone.trim()) return 'Phone number is required';
     if (!formData.password) return 'Password is required';
@@ -72,6 +72,7 @@ const RegisterPage: NextPage = () => {
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
+    alert("4")
     event.preventDefault();
     
     const validationError = validateForm();
@@ -90,7 +91,7 @@ const RegisterPage: NextPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.name.trim(),
+          username: formData.username.trim(),
           email: formData.email.trim().toLowerCase(),
           phone: formData.phone.trim(),
           password: formData.password,
@@ -149,13 +150,13 @@ const RegisterPage: NextPage = () => {
             margin="normal"
             required
             fullWidth
-            id="name"
-            label="Full Name"
-            name="name"
-            autoComplete="name"
+            id="username"
+            label="Username"
+            name="username"
+            autoComplete="username"
             autoFocus
-            value={formData.name}
-            onChange={handleInputChange('name')}
+            value={formData.username}
+            onChange={handleInputChange('username')}
             disabled={loading}
           />
 

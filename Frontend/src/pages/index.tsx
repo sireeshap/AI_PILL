@@ -3,12 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { NextPage, GetStaticProps } from 'next';
 import {
     Container, Typography, Grid, Box, TextField, InputAdornment,
-    CircularProgress, Alert, Paper, Button as MuiButton
+    CircularProgress, Alert, Paper, Button as MuiButton, AppBar, Toolbar, IconButton
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import LoginIcon from '@mui/icons-material/Login';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AgentCard, { PublicAgent } from '../components/agents/AgentCard';
 import Link from 'next/link';
-import { API_BASE_URL } from '../services/api'; // Import API_BASE_URL for direct fetch in GSP
+import { useRouter } from 'next/router';
+import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../services/api';
 import Head from 'next/head';
 
 
@@ -22,6 +27,8 @@ const HomePage: NextPage<HomePageProps> = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [allAgents, setAllAgents] = useState<PublicAgent[]>([]);
+  const { isAuthenticated, isAdmin, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   // Client-side data fetching
   useEffect(() => {
@@ -109,10 +116,45 @@ const HomePage: NextPage<HomePageProps> = () => {
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 5, flexWrap: 'wrap' }}>
-          <Link href="/auth/login" passHref><MuiButton variant="outlined" color="primary">Login</MuiButton></Link>
-          <Link href="/auth/register" passHref><MuiButton variant="outlined" color="secondary">Register</MuiButton></Link>
-          <Link href="/dashboard" passHref><MuiButton variant="contained" color="primary">My Dashboard</MuiButton></Link>
-          <Link href="/admin" passHref><MuiButton variant="contained" color="error">Admin Panel</MuiButton></Link>
+          {!authLoading && (
+            <>
+              {!isAuthenticated ? (
+                <>
+                  <Link href="/auth/login" passHref>
+                    <MuiButton variant="contained" color="primary" startIcon={<LoginIcon />}>
+                      Login
+                    </MuiButton>
+                  </Link>
+                  <Link href="/auth/register" passHref>
+                    <MuiButton variant="outlined" color="primary">
+                      Register
+                    </MuiButton>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <MuiButton 
+                    variant="contained" 
+                    color="primary" 
+                    startIcon={<DashboardIcon />}
+                    onClick={() => router.push('/dashboard')}
+                  >
+                    My Dashboard
+                  </MuiButton>
+                  {isAdmin && (
+                    <MuiButton 
+                      variant="contained" 
+                      color="secondary" 
+                      startIcon={<AdminPanelSettingsIcon />}
+                      onClick={() => router.push('/admin')}
+                    >
+                      Admin Panel
+                    </MuiButton>
+                  )}
+                </>
+              )}
+            </>
+          )}
         </Box>
 
         <Box sx={{ mb: 5, display: 'flex', justifyContent: 'center' }}>
@@ -144,13 +186,17 @@ const HomePage: NextPage<HomePageProps> = () => {
       )}
 
       {!loading && filteredAgents.length > 0 && (
-        <Grid container spacing={3}>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
+          gap: 3 
+        }}>
           {filteredAgents.map((agent) => (
-            <Grid item key={agent.id} xs={12} sm={6} md={4}>
+            <Box key={agent.id}>
               <AgentCard agent={agent} />
-            </Grid>
+            </Box>
           ))}
-        </Grid>
+        </Box>
       )}
     </Container>
     </>

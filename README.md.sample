@@ -1,0 +1,75 @@
+# Sample AI Agent - Document Processor
+
+## Overview
+This is a demonstration AI agent that processes documents and provides analysis including:
+- Word and character counts
+- Content summaries
+- Key topic extraction
+- Basic sentiment analysis
+
+## Features
+- **Document Analysis**: Extract insights from text documents
+- **Multi-format Support**: Handles .txt, .md, .pdf, .docx files
+- **Sentiment Analysis**: Basic positive/negative/neutral sentiment detection
+- **Topic Extraction**: Identifies key topics from document content
+- **Summary Generation**: Creates concise summaries of long documents
+
+## Usage
+
+### Command Line
+```bash
+python sample_agent.py document.txt
+```
+
+### Python API
+```python
+from sample_agent import DocumentProcessor
+
+processor = DocumentProcessor()
+result = processor.process_file("document.txt")
+print(result)
+```
+
+## Installation
+1. Ensure Python 3.7+ is installed
+2. No additional dependencies required for basic functionality
+3. For PDF support, install: `pip install PyPDF2`
+4. For DOCX support, install: `pip install python-docx`
+
+## Configuration
+The agent supports the following configuration options:
+- `model_name`: Specify the analysis model (default: "default")
+- `supported_formats`: List of file formats to process
+
+## Output Format
+```json
+{
+  "status": "success",
+  "file_path": "document.txt",
+  "analysis": {
+    "word_count": 150,
+    "char_count": 1000,
+    "summary": "Document summary...",
+    "key_topics": ["topic1", "topic2", "topic3"],
+    "sentiment": "positive"
+  }
+}
+```
+
+## Error Handling
+The agent includes comprehensive error handling for:
+- File not found errors
+- Encoding issues
+- Malformed documents
+- Unsupported file formats
+
+## License
+MIT License - Feel free to use and modify as needed.
+
+## Contributing
+This is a sample agent for demonstration purposes. In a production environment, you would:
+1. Add proper AI/ML models for analysis
+2. Implement more sophisticated NLP techniques
+3. Add caching and performance optimizations
+4. Include comprehensive test coverage
+5. Add logging and monitoring capabilities

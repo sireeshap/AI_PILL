@@ -1,50 +1,37 @@
 // In ai_pills/frontend/client_nextjs/src/pages/auth/login.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
-import { Container, TextField, Button, Typography, Box, Paper, CircularProgress, Alert } from '@mui/material'; // Added CircularProgress, Alert
+import { Container, TextField, Button, Typography, Box, Paper, CircularProgress, Alert } from '@mui/material';
 import Link from 'next/link';
-import { useRouter } from 'next/router'; // Added useRouter
+import { useRouter } from 'next/router';
+import { useAuth } from '../../contexts/AuthContext';
 
 const LoginPage: NextPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const { login, isAuthenticated } = useAuth();
+  const router = useRouter();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
     setLoading(true);
-    // In a real app, use environment variables for API base URL
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1';
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, // FastAPI's OAuth2PasswordRequestForm expects form data
-        body: new URLSearchParams({ username: email, password: password }), // 'username' field in form can be email or actual username
-      });
-
-      const data = await response.json(); // Try to parse JSON regardless of response.ok for error messages
-
-      if (response.ok) {
-        console.log('Login successful:', data);
-        if (data.access_token) {
-          localStorage.setItem('accessToken', data.access_token); // Store token
-          // alert('Login Successful! Token stored. Redirecting to dashboard...'); // Placeholder
-          router.push('/dashboard'); // Redirect to dashboard
-        } else {
-          setError("Login successful but no token received.");
-          console.error("Login successful but no token received.", data);
-        }
-      } else {
-        setError(data.detail || 'Login failed. Please check your credentials.');
-        console.error('Login failed:', data);
-      }
-    } catch (err) {
-      console.error('Login request error:', err);
-      setError('An unexpected error occurred during login. Please try again later.');
+      await login(email, password);
+      // Navigation is handled by the login function based on user role
+    } catch (err: any) {
+      console.error('Login failed:', err);
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }

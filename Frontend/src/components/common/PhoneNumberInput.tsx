@@ -69,12 +69,12 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
           options={countries}
           getOptionLabel={(option) => `${option.flag} ${option.phoneCode}`}
           renderOption={(props, option) => (
-            <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography sx={{ fontSize: '1.2em' }}>{option.flag}</Typography>
+            <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+              <Typography sx={{ fontSize: '1.2em', mr: 0.5 }}>{option.flag}</Typography>
               <Typography variant="body2" sx={{ minWidth: 60 }}>
                 {option.phoneCode}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ ml: '-25px' }}>
                 {option.name}
               </Typography>
             </Box>
@@ -84,7 +84,7 @@ const PhoneNumberInput: React.FC<PhoneNumberInputProps> = ({
               {...params}
               label="Country"
               variant="outlined"
-              sx={{ minWidth: 140 }}
+              sx={{ minWidth: 180 }}
               disabled={disabled}
               InputProps={{
                 ...params.InputProps,

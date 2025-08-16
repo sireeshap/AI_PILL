@@ -15,6 +15,7 @@ const ResetPasswordPage: NextPage = () => {
   const [error, setError] = useState('');
 
   const handleSubmit = async (event: React.FormEvent) => {
+    alert("5")
     event.preventDefault();
     setError('');
     setMessage('');
